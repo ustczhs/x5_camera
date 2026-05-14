@@ -1,0 +1,23 @@
+我有一个地瓜x5开发板（arm64, ubuntu22.04,由RDK X5 Module+RDK X5 Carrier Board组成，通过ssh root@172.16.40.159可以连接,password: root)，购买了mipi相机已经连接到开发板上，我想实现图片的高效抓取、实时的相机视频获取预览（视频流或其他更高效方式），你可以通过ssh 进入系统进行操作
+
+本电脑的sudo密码是:1
+
+https://developer.d-robotics.cc/rdk_doc/RDK 可参考官方链接文档
+
+把摄像头驱动和相关库安装好，配置MIPI相机参数，实现图像采集和视频流预览功能。
+你直接通过ssh进行操作x5,直到彻底完成任务
+
+
+
+我有一个地瓜x5开发板（arm64, ubuntu22.04,由RDK X5 Module+RDK X5 Carrier Board组成，通过ssh root@172.16.40.159可以连接,password: root)，购买了mipi相机已经连接到开发板上，通过本项目中的文档说明可以获取图像和视频，你可以通过ssh 进入系统进行操作
+
+本电脑的sudo密码是:1
+https://developer.d-robotics.cc/rdk_doc/RD/home/zhs/code2026/x5_camera2中K 可参考官方链接文档
+
+现在我需要实现图片/视频的高效抓取，进而实现目标检测和手势识别，对摄像头信息进行基于bpu的推理分析（可用官方已经训练好的模型），然后通过视频流推送到网页上
+你直接通过ssh进行操作x5,直到彻底完成任务
+
+
+/home/zhs/code2026/x5_camera2中介绍了如何通过ssh连接x5开发板，如何安装摄像头驱动，如何配置MIPI相机参数，如何实现图像采集和视频流预览功能。你结合当前x5_chat对话工程，实现基于webrtc的音视频通话功能
+地瓜x5开发板（arm64, ubuntu22.04,由RDK X5 Module+RDK X5 Carrier Board组成，通过ssh root@172.16.40.159可以连接,password: root)
+本电脑的sudo密码是:1

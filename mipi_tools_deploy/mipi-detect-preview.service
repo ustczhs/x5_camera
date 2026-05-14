@@ -1,0 +1,16 @@
+[Unit]
+Description=RDK X5 MIPI BPU object detection + MJPEG websocket (nginx :8000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/mipi_tools
+Environment=ROS_DOMAIN_ID=91
+Environment=RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ExecStart=/bin/bash -lc 'source /root/mipi_tools/env.sh && exec /root/mipi_tools/mipi_detect_preview.sh'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

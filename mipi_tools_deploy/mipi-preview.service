@@ -1,0 +1,18 @@
+[Unit]
+Description=RDK X5 MIPI camera Web preview (nginx:8000 + ros2 websocket)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=HOME=/root
+Environment=ROS_DOMAIN_ID=91
+Environment=RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+WorkingDirectory=/root
+ExecStart=/root/mipi_tools/mipi_preview.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
