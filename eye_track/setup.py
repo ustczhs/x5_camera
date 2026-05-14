@@ -10,7 +10,10 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml", "README.txt"]),
         ("share/" + package_name + "/launch", ["launch/eye_track.launch.py"]),
-        ("share/" + package_name + "/scripts", ["scripts/launch_eye_track_board.sh"]),
+        (
+            "share/" + package_name + "/scripts",
+            ["scripts/launch_eye_track_board.sh", "scripts/eye-track.service"],
+        ),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

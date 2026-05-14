@@ -40,11 +40,24 @@ RDK X5 MIPI 相机（当前识别为 SC132GS-1280p）使用说明
 ------------
 板端可能还有 S90cam-service、sunrise-camera 等；若与 mipi 争用，请按需 systemctl stop 对应服务。
 
-BPU 目标检测 + 网页（:8000，与 mipi_preview 互斥）
--------------------------------------------------
+BPU 目标检测 + 可选网页（:8000，与 mipi_preview 互斥）
+----------------------------------------------------
   依赖：apt 安装 tros-humble-dnn-node-example、hobot-models-basic 等，详见仓库 RDK_X5_MIPI相机部署与使用说明.md。
   /root/mipi_tools/mipi_detect_preview.sh
-  systemd：mipi-detect-preview.service（默认未 enable）
+  默认：YOLO26 nano（config/yolo26workconfig.json）、640×640、15fps、**不**开 MJPEG/WebSocket（省 CPU）。
+  开浏览器预览：ENABLE_PREVIEW=true 且必须 WEBSOCKET_OUTPUT_FPS>0，例如：
+    ENABLE_PREVIEW=true WEBSOCKET_OUTPUT_FPS=10 /root/mipi_tools/mipi_detect_preview.sh
+  可选环境变量：DNN_DETECT_CONFIG、DNN_IMAGE_WIDTH/HEIGHT、MIPI_FRAMERATE、IMAGE_THROTTLE_HZ（默认 15，设 0 关闭 topic_tools 限帧）、IMAGE_THROTTLE_OUT_TOPIC、CODEC_JPG_QUALITY
+  部署时请同步 `mipi_tools/config/yolo26workconfig.json`（见仓库 mipi_tools_deploy/config/）。
+  systemd：mipi-detect-preview.service（默认未 enable；unit 内已设 ENABLE_PREVIEW=true 与 WEBSOCKET_OUTPUT_FPS=15，保持「检测 + :8000」）
+
+排查：/image_raw 约 60Hz 但 launch 里 mipi 已设 15fps
+------------------------------------------
+  板端实测 `ros2 topic hz /image_raw` 常为 ~60，而 `perc_node` 里 `Sub img fps` 同步约 60，说明当前 **mipi_cam 的 framerate 参数未必限制 ROS 图像发布频率**（与 TROS 版本/传感器模式有关）。
+  本仓库 `mipi_detect_websocket.launch.py` 已默认在 **同一 component 容器** 内加载 **`topic_tools::ThrottleNode`**（`image_throttle_hz` 默认 **15.0**），将 **dnn** 订阅改为 **`/image_raw_to_dnn`**（可改 `image_throttle_out_topic`），从而在 `/image_raw` 仍为高帧时把 **推理输入** 压到设定 Hz。依赖：`sudo apt install ros-humble-topic-tools`（并保证 `source` 后能找到该包）。
+  关闭限帧（恢复 dnn 直接订 `/image_raw`）：`image_throttle_hz:=0`。
+  本 launch 已默认：`mipi_gdc_enable:=false`、`mipi_sub_stream_enable:=false`，且 `sub_image_*` 与主路同分辨率。
+  若需几何校正再开：`ros2 launch ... mipi_gdc_enable:=true mipi_gdc_bin_file:=<板端 sc132gs gdc bin 路径>`。
 
 手势识别 + 网页（与上互斥，勿并行开多路 mipi）
 ----------------------------------------------

@@ -22,14 +22,14 @@
   - **`mipi_preview.sh`**：启动官方 `mipi_cam_websocket` 链路（NV12 → JPEG → WebSocket，nginx **8000** 端口）。
   - **`mipi_snap.sh`**：短时 ROS 模式 BGR8 + `image_saver` 保存 **单张 JPG**。
   - **`mipi_highperf.sh`**：默认 **shared_mem + NV12**，发布 **`/hbmem_img`**（零拷贝，适合算法对接）。
-  - **`mipi_detect_preview.sh`**：**MIPI + BPU 目标检测**（`dnn_node_example`，默认 YOLOv5 配置）+ **JPEG + WebSocket**，浏览器仍访问 **`:8000`**（与纯预览互斥，勿并行）。
+  - **`mipi_detect_preview.sh`**：**MIPI + BPU 目标检测**（`dnn_node_example`，默认 **YOLO26 nano**）+ **可选** JPEG + WebSocket；默认关闭浏览器预览以省 CPU，开启时需设置帧率（见 README_MIPI）。
   - **`mipi_gesture_preview.sh`**：**手势识别**（`mono2d_body_detection` + `hand_lmk_detection` + `hand_gesture_detection` + MIPI + 网页）。脚本使用 **`launch/mipi_gesture_sc132gs.launch.py`**（替代官方 `hand_gesture_detection.launch.py`），为 SC132GS 固定 **模型绝对路径** 与 **`device:=default`**；与检测/纯预览 **同一 MIPI 互斥**。
-  - **`launch/mipi_detect_websocket.launch.py`**：上述检测链路的 launch（标定、JPEG 质量、Web 输出帧率可参数化）。
+  - **`launch/mipi_detect_websocket.launch.py`**：上述检测链路的 launch（标定、分辨率/帧率、`enable_preview`、JPEG 质量、Web 输出帧率可参数化）。
   - **`README_MIPI.txt`**：板上的简要说明（与本文互补）。
 - **systemd**：`/etc/systemd/system/mipi-preview.service`  
   - 设置了 `ROS_DOMAIN_ID=91`、`RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` 等，与板端常见配置一致。  
   - **默认未 `enable`**，需时手动 `systemctl start`。
-- **systemd（检测）**：`/etc/systemd/system/mipi-detect-preview.service`（由仓库 `mipi_tools_deploy/mipi-detect-preview.service` 拷贝），**默认未 enable**，`systemctl start mipi-detect-preview.service` 启动 BPU 检测网页流。
+- **systemd（检测）**：`/etc/systemd/system/mipi-detect-preview.service`（由仓库 `mipi_tools_deploy/mipi-detect-preview.service` 拷贝），**默认未 enable**；unit 内通过环境变量开启 **检测 + :8000** 预览（`ENABLE_PREVIEW=true`、`WEBSOCKET_OUTPUT_FPS=15`）。
 
 ### 3. 行为与排障要点
 
@@ -123,16 +123,16 @@ ros2 launch mipi_cam mipi_cam_websocket.launch.py \
 
 更多分辨率可查看 `/opt/tros/humble/share/mipi_cam/launch/` 下其它 `mipi_cam_*.launch.py`。
 
-### 6. BPU 目标检测 + 网页（YOLO 等）
+### 6. BPU 目标检测 + 可选网页（YOLO 等）
 
 **依赖（板端 apt，示例）：**
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y tros-humble-dnn-node tros-humble-dnn-node-example hobot-models-basic
+sudo apt-get install -y tros-humble-dnn-node tros-humble-dnn-node-example hobot-models-basic ros-humble-topic-tools
 ```
 
-`hobot-models-basic` 提供 `/opt/hobot/model/x5/basic/` 下与 `config/yolov5workconfig.json` 等匹配的 **`.bin` 模型**；若日志报模型文件不存在，请先安装该包。
+`hobot-models-basic` 提供 `/opt/hobot/model/x5/basic/` 下与 `config/yolo26workconfig.json`、`config/yolov5workconfig.json` 等匹配的 **`.bin` 模型**；若日志报模型文件不存在，请先安装该包。仓库提供 `mipi_tools_deploy/config/yolo26workconfig.json`，请同步到板端 `/root/mipi_tools/config/`。
 
 **启动（脚本）：**
 
@@ -141,16 +141,25 @@ source /root/mipi_tools/env.sh
 /root/mipi_tools/mipi_detect_preview.sh
 ```
 
+默认 **不** 启动 MJPEG/WebSocket（仅 MIPI + 检测）。需要浏览器 `:8000` 时：
+
+```bash
+ENABLE_PREVIEW=true WEBSOCKET_OUTPUT_FPS=10 /root/mipi_tools/mipi_detect_preview.sh
+```
+
 可选环境变量（默认值见脚本）：
 
 - **`MIPI_CALIB`**：标定 yaml（默认 `sc132gs_calibration.yaml`）。
-- **`DNN_DETECT_CONFIG`**：工作目录下相对 `config/` 的 json，如 `config/yolov5workconfig.json`、`config/fcosworkconfig.json`。
-- **`CODEC_JPG_QUALITY`**：MJPEG 质量（默认 `80.0`）。
-- **`WEBSOCKET_OUTPUT_FPS`**：Web 侧输出帧率上限（默认 `15`，减轻 websocket 缓存告警）。
+- **`DNN_DETECT_CONFIG`**：工作目录下相对 `config/` 的 json，默认 `config/yolo26workconfig.json`；亦可 `config/yolov5workconfig.json` 等。
+- **`DNN_IMAGE_WIDTH` / `DNN_IMAGE_HEIGHT`**：MIPI 输出分辨率（默认 `640`）。
+- **`MIPI_FRAMERATE`**：采集帧率（默认 `15.0`）。
+- **`ENABLE_PREVIEW`**：`true`/`1`/`yes`/`on` 时启用 JPEG + WebSocket。
+- **`WEBSOCKET_OUTPUT_FPS`**：在 `ENABLE_PREVIEW=true` 时**必须**大于 0；关闭预览时可省略。
+- **`CODEC_JPG_QUALITY`**：MJPEG 质量（默认 `80.0`，仅开启预览时有效）。
 
-浏览器访问 `http://<开发板IP>:8000`。停止：终端 **Ctrl+C**，或 `systemctl stop mipi-detect-preview.service`。
+浏览器访问 `http://<开发板IP>:8000`（仅开启预览时）。停止：终端 **Ctrl+C**，或 `systemctl stop mipi-detect-preview.service`。
 
-**说明：** 本链路基于官方 **component 容器**（`mipi_cam` NV12 + `dnn_node_example` + `hobot_codec` + `websocket`），与 `dnn_node_example` 自带 `dnn_node_example_mipi_component.launch.py` 等价思路，并补全 **SC132GS 标定**、**JPEG 质量**、**websocket_output_fps**。
+**说明：** 本链路基于官方 **component 容器**（`mipi_cam` NV12 + `dnn_node_example`；可选 `hobot_codec` + `websocket`），并补全 **SC132GS 标定**、**分辨率/帧率**、**enable_preview**、**JPEG 质量**、**websocket_output_fps**。
 
 ### 7. 手势识别 + 网页（官方包）
 
@@ -176,22 +185,25 @@ export CAM_TYPE=mipi
 
 ```bash
 scp mipi_tools_deploy/{env.sh,mipi_*.sh,mipi-detect-preview.service} root@<IP>:/root/mipi_tools/
+scp mipi_tools_deploy/config/yolo26workconfig.json root@<IP>:/root/mipi_tools/config/
 scp mipi_tools_deploy/launch/mipi_detect_websocket.launch.py \
   mipi_tools_deploy/launch/mipi_gesture_sc132gs.launch.py \
   mipi_tools_deploy/launch/mipi_hand_lmk_sc132gs.launch.py \
   root@<IP>:/root/mipi_tools/launch/
 ```
 
+推荐一键同步（含 `config/`、全部 `launch/`、`*.service`，并远端 `daemon-reload`）：在仓库根目录执行 `./sync_mipi_tools_to_board.sh root@<IP>`；若需同时更新 `eye_track` 包，再加 `MIPI_SYNC_ROS_WS=/root/ros2_ws ./sync_mipi_tools_to_board.sh root@<IP>`，详见脚本内 `--help`。
+
 ### 9. 排障补充（BPU / MIPI）
 
 - 若出现 **`creat_isp_node ... failed, ret -10`** 且随后进程崩溃：多为 **ISP/相机被异常占用或上次崩溃未释放**。先 `pkill` 相关 ROS 节点，无效则 **`reboot`** 后再启动脚本。
-- **`parameter framerate ... integer/double`**：`mipi_cam` 的帧率参数类型为 **浮点**，launch 中请使用 **`30.0`** 形式（本仓库 `mipi_detect_websocket.launch.py` 已按此默认）。
+- **`parameter framerate ... integer/double`**：`mipi_cam` 的帧率参数类型为 **浮点**，launch 中请使用 **`15.0`** / **`30.0`** 等形式（本仓库 `mipi_detect_websocket.launch.py` 默认 **`15.0`**）。
 
 ---
 
 ## 三、CPU 优化改进方向
 
-当前典型负载来自：**`mipi_cam` + `hobot_codec`（JPEG）+ `websocket`**；若 **`cam-service`** 仍在运行，也会占一部分 CPU。可按优先级尝试：
+当前典型负载来自：**`mipi_cam` + BPU 检测**；若启用 **`hobot_codec`（JPEG）+ `websocket`**，CPU 会再上一档。若 **`cam-service`** 仍在运行，也会占一部分 CPU。可按优先级尝试：
 
 ### 1. 关闭不重叠的相机服务（收益通常最大）
 
@@ -234,3 +246,10 @@ scp mipi_tools_deploy/launch/mipi_detect_websocket.launch.py \
 ---
 
 *文档对应板端工具路径：`/root/mipi_tools/`。若你迁移了脚本位置，请同步修改本文中的路径。*
+
+
+# 只同步 mipi_tools（含 config、launch、service）
+./sync_mipi_tools_to_board.sh root@172.16.40.159
+
+# 同时同步 eye_track 到板端工作区（改完 launch/README 时用）
+MIPI_SYNC_ROS_WS=/root/ros2_ws ./sync_mipi_tools_to_board.sh root@172.16.40.159

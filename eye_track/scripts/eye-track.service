@@ -1,0 +1,25 @@
+[Unit]
+Description=RDK X5 eye_track（MIPI + BPU 检测 + 眼随人动；默认 topic_tools 限 dnn 帧率）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# systemd 下无登录会话时 HOME 常为空，ROS2 无法展开 ~/.ros/log（rcutils_expand_user / rcl_logging_spdlog 失败）
+Environment=HOME=/root
+Environment=USER=root
+# eye_track.launch 内会 chdir 到 MIPI_TOOLS；此处与板端默认路径一致
+WorkingDirectory=/root/mipi_tools
+Environment=MIPI_TOOLS=/root/mipi_tools
+Environment=ROS2_WS=/root/ros2_ws
+Environment=ROS_DOMAIN_ID=91
+Environment=RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+# 需要改路径、加 launch 参数时：sudo systemctl edit eye-track.service
+ExecStart=/bin/bash -lc 'source /root/mipi_tools/env.sh && source /root/ros2_ws/install/setup.bash && exec ros2 launch eye_track eye_track.launch.py'
+# 由你手动 start/stop；异常退出不自动拉起（避免 MIPI 残留时反复失败）
+Restart=no
+TimeoutStopSec=25
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

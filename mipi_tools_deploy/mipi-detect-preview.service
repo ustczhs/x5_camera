@@ -8,6 +8,9 @@ Type=simple
 WorkingDirectory=/root/mipi_tools
 Environment=ROS_DOMAIN_ID=91
 Environment=RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+# mipi_detect_preview.sh 默认关闭浏览器预览；此 unit 保持「检测 + :8000」行为
+Environment=ENABLE_PREVIEW=true
+Environment=WEBSOCKET_OUTPUT_FPS=15
 ExecStart=/bin/bash -lc 'source /root/mipi_tools/env.sh && exec /root/mipi_tools/mipi_detect_preview.sh'
 Restart=on-failure
 RestartSec=5
